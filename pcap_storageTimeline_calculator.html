@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Storage Sizing and Events Per Second(EPS) Calculator</title>
+    <style>
+        .header-logos {
+            display: flex;
+            justify-content: row;
+            align-items: center;
+        }
+    </style>
+    <script>
+        function calculateStorageAndEvents() {
+            const seconds_per_day = 86400;
+
+            // Average packet size in bits (assuming 600 bytes average packet size)
+            const avg_packet_size_bits = 600 * 8;
+
+            // Get user input for customer name, days, Gbps rate, and utilization percentage
+            let customerName = document.getElementById("customerInput").value;
+            // let days = document.getElementById("daysInput").value;
+            let days = document.getElementById("daysDropdown").value;
+            let gigabits_per_second = parseFloat(document.getElementById("rateInput").value);
+            let utilization_percentage = parseFloat(document.getElementById("utilizationInput").value);
+            let notes = document.getElementById("notesInput").value;
+
+            // Determine duplex mode multiplier
+            let duplex_multiplier = 1; // default for half duplex
+            if (document.getElementById("fullDuplex").checked) {
+                duplex_multiplier = 2; // For full duplex
+            }
+
+            // Determine CompressionMultiplier
+            let compression_multiplier = 1; // default for compression
+            if (document.getElementById("10").checked) {
+                compression_multiplier = 1.7; // 0
+            }
+            if (document.getElementById("20").checked) {
+                compression_multiplier = 1.6; // 0
+            }
+            if (document.getElementById("30").checked) {
+                compression_multiplier = 1.5; // 0
+            }
+            if (document.getElementById("40").checked) {
+                compression_multiplier = 1.4; // 0
+            }
+            if (document.getElementById("50").checked) {
+                compression_multiplier = 1.3; // 0
+            }
+            if (document.getElementById("60").checked) {
+                compression_multiplier = 1.2; // 0
+            }
+            if (document.getElementById("70").checked) {
+                compression_multiplier = 1.1; // 0
+            }
+
+            // Determine events per packet based on user's file transfer choice
+            let file_transfer_rate = document.getElementById("fileTransferRate").value;
+            let events_per_packet = (file_transfer_rate === "Normal") ? 3.5 : 5.25;
+
+            // Calculate average utilization
+            let avg_utilization = (gigabits_per_second * utilization_percentage * duplex_multiplier) / 100;
+
+            // Convert average utilization in Gbps to GBps (Gigabytes per second)
+            let gigabytes_per_second = avg_utilization / 8;
+
+            // Calculate the total gigabytes for the given days
+            let total_gigabytes = gigabytes_per_second * seconds_per_day * days;
+
+            // Account for metadata
+            total_gigabytes *= 1.1;
+
+            // Determine RAID configuration multiplier
+            let raidConfig = document.getElementById("raidConfig").value;
+            let raidMultiplier = (raidConfig === "2U RAID 5/6") ? 1.08 : 1.05;
+
+            // Apply RAID multiplier
+            total_gigabytes *= raidMultiplier;
+
+            total_gigabytes /= compression_multiplier;
+
+            // Convert the total gigabytes to terabytes
+            let total_terabytes = total_gigabytes / 1024;
+
+            // Convert the total terabytes to petabytes
+            let total_petabytes = total_terabytes / 1024;
+
+            // Calculate packets per second
+            let packets_per_second = (avg_utilization * 1e9) / avg_packet_size_bits;  // Convert Gbps to bps for calculation
+
+            // Calculate events per second
+            let events_per_second = packets_per_second * events_per_packet;
+
+            // Display the results
+            let resultText = "Total storage (with metadata and RAID configuration) needed for " + days + " days at an average utilization of " + avg_utilization.toFixed(2) + " Gbps: " + total_petabytes.toFixed(2) + " PB\n";
+            resultText += "Estimated events per second: " + events_per_second.toFixed(2);
+            document.getElementById("result").innerHTML = resultText.replace(/\n/g, '<br>');
+
+
+            // Save to file
+            let currentDate = new Date().toLocaleDateString();
+            let filename = `${customerName}_${currentDate}.txt`;
+            let saveText = `Customer: ${customerName}\nDate: ${currentDate}\nMax Rate: ${gigabits_per_second} Gbps\nUtilization: ${utilization_percentage}%\nDuplex Mode: ${duplex_multiplier === 2 ? 'Full' : 'Half'}\nFile Transfer Rate: ${file_transfer_rate}\nDays: ${days}\n\n${resultText}\n\nNotes:\n${notes}`;
+            let blob = new Blob([saveText], { type: 'text/plain;charset=utf-8' });
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+    </script>
+</head>
+
+<body>
+    <!--<div class="header-logos">
+        <img src="https://raw.githubusercontent.com/Sentry-Wire/sentrywire-logos/35187ffd882de6153234e96883e693c976bf3d04/sw_logo_transparent.png"
+            alt="SentryWire Logo" height="74">
+        <img src="https://raw.githubusercontent.com/Sentry-Wire/sentrywire-logos/89861d4189c858ff0d0942cf592b152e49a071b6/Trinity_Cyber_Logo_Logo.jpg"
+            alt="Trinity Cyber Logo" height="74">
+    </div>-->
+    <h2>Storage Sizing and Events Per Second(EPS) Calculator</h2>
+            <p>Calculates an estimate for storage requirements and estimated events per second based on user supplied
+                inputs:</p>
+            <p>Date: <span id="currentDate"></span></p>
+            <label for="customerInput"><b>Customer:</b></label>
+            <input id="customerInput" placeholder="Enter customer name" type="text" /><br /><br />
+            <script>document.getElementById("currentDate").textContent = new Date().toLocaleDateString();</script>
+            <label for="rateInput"><b>Enter maximum rate in Gbps:</b></label>
+            <input id="rateInput" placeholder="Enter rate in Gbps" type="text" /><br /><br />
+            <label for="utilizationInput"><b>Enter average utilization as a percentage:</b></label>
+            <input id="utilizationInput" placeholder="Enter utilization % (e.g., 50 for 50%)" type="text" /><br /><br />
+
+            <label><b>Estimated Encrypted Traffic (%)</b></label><br>
+
+            <input id="noCompression" type="checkbox" />
+            <label for="noCompression">100% (No Compression)</label><br />
+            <input id="10" type="checkbox" />
+            <label for="10">10%</label><br>
+            <input id="20" type="checkbox" />
+            <label for="20">20%</label><br>
+            <input id="30" type="checkbox" />
+            <label for="30">30%</label><br>
+            <input id="40" type="checkbox" />
+            <label for="40">40%</label><br>
+            <input id="50" type="checkbox" />
+            <label for="50">50%</label><br>
+            <input id="60" type="checkbox" />
+            <label for="60">60%</label><br>
+            <input id="70" type="checkbox" />
+            <label for="70">70%</label><br>
+            <p><i>Defaults to 0% if no selection is made.</i></p>
+
+            <label><b>Duplex mode:</b></label><br>
+            <input id="fullDuplex" type="checkbox" />
+            <label for="fullDuplex">Full Duplex</label><br>
+            <input checked="" id="halfDuplex" type="checkbox" />
+            <label for="halfDuplex">Half Duplex</label><br /><br />
+            <label for="fileTransferRate"><b>How many files are transferred over the network?<b></label>
+            <select id="fileTransferRate">
+                <option value="Normal">Normal</option>
+                <option value="High">High</option>
+            </select><br /><br />
+            <label for="raidConfig"><b>RAID Configuration:<b></label>
+            <select id="raidConfig">
+                <option value="2U RAID 5/6">2U RAID 5/6</option>
+                <option value="4U RAID 5/6">4U RAID 5/6</option>
+            </select><br /><br />
+            <label for="daysDropdown"><b>Desired Retention Time:</b></label>
+            <select id="daysDropdown">
+                <option value="30">30</option>
+                <option value="60">60</option>
+                <option value="90">90</option>
+                <option value="120">120</option>
+                <option value="180">180</option>
+                <option value="365">365</option>
+            </select><br /><br />
+
+            <label for="notesInput">Notes:</label><br />
+            <textarea cols="50" id="notesInput" placeholder="Enter any additional notes here..."
+                rows="4"></textarea><br><br>
+
+            <button onclick="calculateStorageAndEvents()">Calculate</button>
+            <p id="result"></p>
+
+            <p><i>Metadata accounted for as an additional 10% of total storage.</i></p><br />
+</body>
+
+</html>
